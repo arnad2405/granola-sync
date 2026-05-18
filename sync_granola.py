@@ -205,11 +205,13 @@ class GranolaClient:
                         "app (which refreshes the token) and re-run."
                     )
                 if attempt == retries:
-                    raise SystemExit(f"Granola API {path} HTTP {e.code}: {e.read()[:200].decode(errors='replace')}")
+                    # Raise a plain exception so per-doc callers can catch and skip
+                    raise RuntimeError(f"Granola API {path} HTTP {e.code}: {e.read()[:200].decode(errors='replace')}")
                 self.log.warning(f"  {path} HTTP {e.code}, retrying ({attempt+1}/{retries})")
             except (urllib.error.URLError, socket.timeout) as e:
                 if attempt == retries:
-                    raise SystemExit(f"Granola API {path} network error: {e}")
+                    # Raise a plain exception so per-doc callers can catch and skip
+                    raise RuntimeError(f"Granola API {path} network error: {e}")
                 self.log.warning(f"  {path} network error: {e}, retrying ({attempt+1}/{retries})")
             time.sleep(1.5 * (attempt + 1))
 
@@ -217,7 +219,10 @@ class GranolaClient:
 
     def get_all_document_lists_metadata(self) -> dict[str, dict]:
         """Return {folder_id: {title, deleted_at, ...}} from the cloud API."""
-        result = self._post("/v1/get-document-lists-metadata", {})
+        try:
+            result = self._post("/v1/get-document-lists-metadata", {})
+        except RuntimeError as e:
+            raise SystemExit(f"Could not fetch folder list: {e}")
         return result.get("lists", {}) if isinstance(result, dict) else {}
 
     def get_document_list_with_docs(self, list_id: str) -> dict:
@@ -226,7 +231,10 @@ class GranolaClient:
         The 'documents' key in the response is a list of full document objects
         (title, created_at, updated_at, people, google_calendar_event, etc.).
         """
-        return self._post("/v1/get-document-list", {"list_id": list_id}, timeout=30)
+        try:
+            return self._post("/v1/get-document-list", {"list_id": list_id}, timeout=30)
+        except RuntimeError as e:
+            raise SystemExit(f"Could not fetch folder contents: {e}")
 
     # ---- panels (AI-generated summaries) ----
 
