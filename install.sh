@@ -45,7 +45,26 @@ green "Runtime files copied to $STATE_DIR"
 mkdir -p "$OUTPUT_DIR"
 green "Output folder: $OUTPUT_DIR"
 
-# 4. Generate and install the LaunchAgent plist (uses $HOME, not a hardcoded username)
+# 4. Create desktop shortcut
+SHORTCUT="$HOME/Desktop/Sync Granola Notes.command"
+cat > "$SHORTCUT" << EOF
+#!/bin/bash
+${VENV_DIR}/bin/python '${STATE_DIR}/sync_granola.py'
+status=\$?
+echo ""
+if [ "\$status" -eq 0 ]; then
+  echo "Granola sync complete. Press any key to close."
+else
+  echo "Granola sync failed with exit code \$status. Check ~/Library/Application Support/granola-sync/logs/."
+  echo "Press any key to close."
+fi
+read -n 1
+exit "\$status"
+EOF
+chmod +x "$SHORTCUT"
+green "Desktop shortcut created: ~/Desktop/Sync Granola Notes.command"
+
+# 5. Generate and install the LaunchAgent plist (uses $HOME, not a hardcoded username)
 cyan "==> Generating and installing LaunchAgent ($PLIST_LABEL)"
 mkdir -p "$LAUNCH_AGENTS_DIR"
 
