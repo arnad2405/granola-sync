@@ -814,7 +814,37 @@ def run_sync(args: argparse.Namespace, log: logging.Logger) -> int:
         f"duplicates={stats.duplicates} "
         f"skipped={stats.skipped} failed={stats.failed}"
     )
+
+    if not args.dry_run:
+        _notify(stats)
+
     return 0 if stats.failed == 0 else 1
+
+
+def _notify(stats: SyncStats) -> None:
+    """Send a macOS notification summarising the sync result."""
+    changed = stats.created + stats.updated + stats.moved
+    if stats.failed:
+        title   = "Granola Sync — errors"
+        message = f"{stats.failed} doc(s) failed. Check logs for details."
+    elif changed == 0:
+        return  # nothing new — no notification needed
+    else:
+        parts = []
+        if stats.created: parts.append(f"{stats.created} new")
+        if stats.updated: parts.append(f"{stats.updated} updated")
+        if stats.moved:   parts.append(f"{stats.moved} moved")
+        title   = "Granola Sync — done"
+        message = ", ".join(parts)
+
+    try:
+        subprocess.run(
+            ["osascript", "-e",
+             f'display notification "{message}" with title "{title}" sound name "Frog"'],
+            check=False, capture_output=True,
+        )
+    except Exception:
+        pass  # notifications are best-effort
 
 
 def run_healthcheck(log: logging.Logger) -> int:
