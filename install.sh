@@ -26,7 +26,15 @@ red()   { printf "\033[31m%s\033[0m\n" "$*"; }
 
 cd "$PROJECT_DIR"
 
-# 1. Python venv + deps
+# 1. SSL certificates — python.org macOS installers ship without them
+#    Run the bundled fix if present; harmless on Homebrew/system Python.
+CERT_CMD=$(ls "/Applications/Python 3."*"/Install Certificates.command" 2>/dev/null | tail -1)
+if [ -n "$CERT_CMD" ]; then
+    cyan "==> Installing Python SSL certificates"
+    bash "$CERT_CMD" > /dev/null 2>&1 && green "SSL certificates installed" || yellow "SSL cert install skipped (may already be set up)"
+fi
+
+# 2. Python venv + deps
 cyan "==> Creating Python virtualenv at $VENV_DIR"
 if [ ! -f "$VENV_DIR/bin/python" ]; then
     rm -rf "$VENV_DIR"
