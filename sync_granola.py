@@ -236,6 +236,21 @@ class GranolaClient:
         except RuntimeError as e:
             raise SystemExit(f"Could not fetch folder contents: {e}")
 
+    def get_recent_documents(self) -> list[dict]:
+        """Return recently touched documents regardless of folder membership.
+
+        Catches documents that aren't filed into any Granola folder (shown as
+        owner "Me" with no folder in the app). Not a full history — the API
+        returns a rolling window of recently created/updated docs, not true
+        pagination — but it's the only way to surface unfiled notes at all.
+        """
+        try:
+            result = self._post("/v1/get-documents", {}, timeout=30)
+            return result if isinstance(result, list) else []
+        except Exception as e:
+            self.log.warning(f"  could not fetch recent/unfiled documents: {e}")
+            return []
+
     # ---- panels (AI-generated summaries) ----
 
     def get_document_panels(self, document_id: str) -> list[dict[str, Any]]:
@@ -303,6 +318,21 @@ def build_folder_index(client: GranolaClient, log: logging.Logger) -> FolderInde
             log.warning(f"  could not fetch docs for folder '{title}': {e}")
 
     log.info(f"  indexed {len(idx.documents)} documents across {len(idx.id_to_title)} folders")
+
+    # 3. Recently touched documents not in any folder ("Unfiled" in Granola)
+    recent_docs = client.get_recent_documents()
+    unfiled_added = 0
+    for doc in recent_docs:
+        if not isinstance(doc, dict):
+            continue
+        doc_id = doc.get("id")
+        if not doc_id or doc_id in idx.documents:
+            continue
+        idx.documents[doc_id] = doc
+        unfiled_added += 1
+    if unfiled_added:
+        log.info(f"  found {unfiled_added} additional unfiled document(s)")
+
     return idx
 
 # ---------------------------------------------------------------------------
